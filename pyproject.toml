@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wechat2obsidian"
+version = "0.1.0"
+description = "Export WeChat articles to Obsidian-compatible Markdown with images"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "workbot"},
+]
+keywords = ["wechat", "obsidian", "markdown", "export", "mp.weixin.qq.com"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "requests>=2.28.0",
+    "beautifulsoup4>=4.12.0",
+]
+
+[project.scripts]
+wx2obsidian = "wechat2obsidian.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
