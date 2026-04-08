@@ -271,7 +271,7 @@ def main():
             "--reset", action="store_true", help="Reset config to defaults"
         )
         args = cfg_parser.parse_args(config_argv)
-        cmd_config(args, cfg)
+        return cmd_config(args, cfg)
     else:
         # Build import parser
         parser = argparse.ArgumentParser(
@@ -312,7 +312,7 @@ def main():
         )
         args = parser.parse_args(import_argv)
         args.urls = urls
-        sys.exit(cmd_import(args, cfg))
+        return cmd_import(args, cfg)
 
 
 if __name__ == "__main__":
