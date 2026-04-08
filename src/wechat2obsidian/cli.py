@@ -123,10 +123,21 @@ def process_one_url(url, cfg, folder=None, attach_arg=None, overwrite=False, vau
     return filepath, None
 
 
+def _is_first_run(cfg):
+    """Check if this is a first run (no vault path configured)."""
+    return not cfg.get("vault_path", "")
+
+
 def cmd_import(args, cfg):
     """Handle article import (default command)."""
     if args.batch:
         # Batch mode: read URLs from file
+        if _is_first_run(cfg) and not getattr(args, "vault", None):
+            print("Vault path not configured. Please run setup first:")
+            print("  wx2obsidian config")
+            print("  wx2obsidian <url> --vault <path>")
+            return 1
+
         urls = []
         with open(args.batch, "r", encoding="utf-8") as f:
             for line in f:
@@ -174,8 +185,31 @@ def cmd_import(args, cfg):
     else:
         # Single URL mode
         if not args.urls:
-            print("Error: provide a URL or use --batch <file>")
-            return 1
+            # No URL provided — check if first run
+            if _is_first_run(cfg):
+                # First-time setup: guide user through configuration
+                from .config import get_vault_path
+                print()
+                vault = get_vault_path(cfg, interactive=True)
+                if vault:
+                    print("\nSetup complete! Now you can:")
+                    print("  wx2obsidian <url>")
+                    print("  wx2obsidian --batch links.txt")
+                    return 0
+                else:
+                    print("\nSetup cancelled.")
+                    return 1
+            else:
+                # Already configured, show help
+                print("wx2obsidian v0.1.0")
+                print("Export WeChat articles to Obsidian-compatible Markdown with images.\n")
+                print("Usage:")
+                print("  wx2obsidian <url>             Export one article")
+                print("  wx2obsidian <url> --folder F  Save to subfolder F")
+                print("  wx2obsidian --batch file.txt  Batch export from file")
+                print("  wx2obsidian config --show     View current config")
+                print("  wx2obsidian config --vault P  Set vault path")
+                return 0
 
         success_count = 0
         for url in args.urls:
