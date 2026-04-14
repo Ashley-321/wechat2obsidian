@@ -68,7 +68,7 @@ def process_one_url(url, cfg, folder=None, attach_arg=None, overwrite=False, vau
     attach_dir = get_attach_dir(cfg, attach_arg, vault_path)
     target_folder = folder or cfg.get("default_folder", "")
     tags = cfg.get("tags", ["wechat"])
-    delay = cfg.get("request_delay", 0.3)
+    delay = cfg.get("request_delay", 0.8)
     timeout = cfg.get("timeout", 30)
 
     # Step 1: Fetch article
@@ -92,6 +92,11 @@ def process_one_url(url, cfg, folder=None, attach_arg=None, overwrite=False, vau
         article_dir = vault_path
     article_dir = os.path.abspath(article_dir)
     img_save_dir = attach_dir if attach_dir else article_dir
+
+    # Debug info
+    print("  Vault: {}".format(vault_path))
+    print("  Article dir: {}".format(article_dir))
+    print("  Image save dir: {}".format(img_save_dir))
 
     # Step 2: Download images
     print("\n[2/4] Downloading images...")
@@ -130,6 +135,58 @@ def _is_first_run(cfg):
 
 def cmd_import(args, cfg):
     """Handle article import (default command)."""
+    # Interactive mode: read URLs from stdin
+    if args.interactive:
+        if _is_first_run(cfg) and not getattr(args, "vault", None):
+            print("Vault path not configured. Please run setup first:")
+            print("  wx2obsidian config")
+            return 1
+
+        print("Interactive mode: Paste WeChat article URLs (one per line)")
+        print("Press Enter twice (empty line) to finish:\n")
+
+        urls = []
+        while True:
+            try:
+                line = input().strip()
+                if not line:
+                    break
+                urls.append(line)
+            except EOFError:
+                break
+
+        if not urls:
+            print("No URLs provided.")
+            return 1
+
+        print("\nProcessing {} article(s)...\n".format(len(urls)))
+        errors = []
+
+        for i, url in enumerate(urls, 1):
+            print("=" * 50)
+            print("Article {}/{}".format(i, len(urls)))
+            print("=" * 50)
+            filepath, err = process_one_url(
+                url, cfg, args.folder, args.attach_dir, args.overwrite, getattr(args, "vault", None)
+            )
+            if err:
+                print("  ERROR: {}".format(err))
+                errors.append("{}: {}".format(url, err))
+
+            # Delay between articles (2 seconds to avoid rate limiting)
+            if i < len(urls):
+                time.sleep(2)
+
+        # Summary
+        print("\n" + "=" * 50)
+        print("Complete: {}/{} succeeded".format(len(urls) - len(errors), len(urls)))
+        if errors:
+            print("\nFailed URLs:")
+            for e in errors:
+                print("  - {}".format(e))
+
+        return 1 if errors else 0
+
     if args.batch:
         # Batch mode: read URLs from file
         if _is_first_run(cfg) and not getattr(args, "vault", None):
@@ -194,7 +251,8 @@ def cmd_import(args, cfg):
                 if vault:
                     print("\nSetup complete! Now you can:")
                     print("  wx2obsidian <url>")
-                    print("  wx2obsidian --batch links.txt")
+                    print("  wx2obsidian -i              (paste multiple URLs)")
+                    print("  wx2obsidian --batch urls.txt")
                     return 0
                 else:
                     print("\nSetup cancelled.")
@@ -206,6 +264,7 @@ def cmd_import(args, cfg):
                 print("Usage:")
                 print("  wx2obsidian <url>             Export one article")
                 print("  wx2obsidian <url> --folder F  Save to subfolder F")
+                print("  wx2obsidian -i                Interactive: paste multiple URLs")
                 print("  wx2obsidian --batch file.txt  Batch export from file")
                 print("  wx2obsidian config --show     View current config")
                 print("  wx2obsidian config --vault P  Set vault path")
@@ -280,6 +339,7 @@ def main():
             epilog="Examples:\n"
                    "  wx2obsidian https://mp.weixin.qq.com/s/xxxxx\n"
                    "  wx2obsidian <url> --folder \"My Notes\"\n"
+                   "  wx2obsidian -i                (paste URLs interactively)\n"
                    "  wx2obsidian --batch links.txt\n"
                    "  wx2obsidian config --vault /path/to/vault\n",
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -304,6 +364,11 @@ def main():
             "--overwrite", "-o",
             action="store_true",
             help="Overwrite existing files",
+        )
+        parser.add_argument(
+            "--interactive", "-i",
+            action="store_true",
+            help="Interactive mode: paste multiple URLs (empty line to finish)",
         )
         parser.add_argument(
             "--version", "-v",

@@ -52,13 +52,14 @@ def get_image_filename(url):
     return "wechat_{}.{}".format(url_hash, ext)
 
 
-def download_image(url, save_dir, timeout=30):
+def download_image(url, save_dir, timeout=30, retries=2):
     """Download a single image and save to save_dir.
 
     Args:
         url: Image URL
         save_dir: Directory to save the image
         timeout: Request timeout in seconds
+        retries: Number of retry attempts on failure
 
     Returns:
         Local filename on success, None on failure
@@ -70,16 +71,26 @@ def download_image(url, save_dir, timeout=30):
     if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
         return filename
 
-    try:
-        resp = requests.get(url, headers=IMG_HEADERS, timeout=timeout, stream=True)
-        if resp.status_code == 200:
-            with open(filepath, "wb") as f:
-                for chunk in resp.iter_content(8192):
-                    f.write(chunk)
-            return filename
-        return None
-    except Exception:
-        return None
+    for attempt in range(retries + 1):
+        try:
+            resp = requests.get(url, headers=IMG_HEADERS, timeout=timeout, stream=True)
+            if resp.status_code == 200:
+                with open(filepath, "wb") as f:
+                    for chunk in resp.iter_content(8192):
+                        f.write(chunk)
+                return filename
+            else:
+                if attempt < retries:
+                    time.sleep(1)
+                    continue
+                print("    HTTP {}: {}".format(resp.status_code, url[:60]))
+                return None
+        except Exception as e:
+            if attempt < retries:
+                time.sleep(1)
+                continue
+            print("    Error: {} - {}".format(str(e)[:40], url[:60]))
+            return None
 
 
 def download_all_images(image_urls, save_dir, delay=0.3):
